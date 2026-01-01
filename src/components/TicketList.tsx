@@ -6,6 +6,7 @@ interface Ticket {
     title: string;
     description: string;
     status: string;
+    comment: string;
     priority: string;
     createdAt: string;
 }
@@ -88,6 +89,15 @@ export default function TicketList() {
                                     {ticket.title}
                                 </h3>
                                 <p className="mt-2 text-gray-600">{ticket.description}</p>
+
+                                {/* Display comment if it exists */}
+                                {ticket.comment && (
+                                    <div className="mt-3 p-3 bg-blue-50 border-l-4 border-blue-500 rounded">
+                                        <p className="text-sm font-medium text-blue-900 mb-1">Comment:</p>
+                                        <p className="text-sm text-blue-800">{ticket.comment}</p>
+                                    </div>
+                                )}
+
                                 <div className="mt-4 flex items-center gap-3">
                                     <span
                                         className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(

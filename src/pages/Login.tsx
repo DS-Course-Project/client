@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { authClient } from "../lib/auth";
+import { authClient, type AuthUser } from "../lib/auth";
 import { Link, useNavigate } from "react-router-dom";
 
 export default function Login() {
@@ -14,7 +14,11 @@ export default function Login() {
             email,
             password,
         }, {
-            onSuccess: () => {
+            onSuccess: (user) => {
+                if ((user.data?.user as AuthUser).role.toString() === "admin") {
+                    navigate("/admin");
+                    return;
+                }
                 navigate("/dashboard");
             },
             onError: (ctx) => {

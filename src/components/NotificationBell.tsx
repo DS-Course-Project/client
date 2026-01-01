@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { Bell, X } from "lucide-react";
+import { Bell, X, Ticket, MessageSquare, RefreshCw, AlertCircle } from "lucide-react";
 
 interface Notification {
     id: string;
-    type: string;
+    eventType: string;
     message: string;
     ticketId: string;
-    read: boolean;
+    isRead: boolean;
     createdAt: string;
 }
 
@@ -18,8 +18,7 @@ export default function NotificationBell() {
 
     useEffect(() => {
         fetchNotifications();
-        // Poll for new notifications every 30 seconds
-        const interval = setInterval(fetchNotifications, 30000);
+        const interval = setInterval(fetchNotifications, 3000);
         return () => clearInterval(interval);
     }, []);
 
@@ -28,6 +27,7 @@ export default function NotificationBell() {
             const response = await axios.get("http://localhost:3000/notifications", {
                 withCredentials: true,
             });
+            console.log(response.data)
             setNotifications(response.data);
         } catch (err) {
             console.error("Failed to fetch notifications:", err);
@@ -43,7 +43,7 @@ export default function NotificationBell() {
             );
             setNotifications(
                 notifications.map((n) =>
-                    n.id === notificationId ? { ...n, read: true } : n
+                    n.id === notificationId ? { ...n, isRead: true } : n
                 )
             );
         } catch (err) {
@@ -51,7 +51,83 @@ export default function NotificationBell() {
         }
     };
 
-    const unreadCount = notifications.filter((n) => !n.read).length;
+    const unreadCount = notifications.filter((n) => !n.isRead).length;
+
+    // Helper function to parse notification message
+    const parseMessage = (message: string) => {
+        try {
+            return JSON.parse(message);
+        } catch {
+            return null;
+        }
+    };
+
+    // Get icon and color based on event type
+    const getEventStyle = (eventType: string) => {
+        switch (eventType) {
+            case "ticket_created":
+                return {
+                    icon: Ticket,
+                    bgColor: "bg-green-50",
+                    iconColor: "text-green-600",
+                    borderColor: "border-l-green-500",
+                };
+            case "ticket_comment_added":
+                return {
+                    icon: MessageSquare,
+                    bgColor: "bg-blue-50",
+                    iconColor: "text-blue-600",
+                    borderColor: "border-l-blue-500",
+                };
+            case "ticket_status_changed":
+                return {
+                    icon: RefreshCw,
+                    bgColor: "bg-purple-50",
+                    iconColor: "text-purple-600",
+                    borderColor: "border-l-purple-500",
+                };
+            default:
+                return {
+                    icon: AlertCircle,
+                    bgColor: "bg-gray-50",
+                    iconColor: "text-gray-600",
+                    borderColor: "border-l-gray-500",
+                };
+        }
+    };
+
+    // Format notification content based on event type
+    const formatNotificationContent = (notification: Notification) => {
+        const data = parseMessage(notification.message);
+        if (!data) return { title: "Notification", description: notification.message, ticketInfo: null };
+
+        switch (notification.eventType) {
+            case "ticket_created":
+                return {
+                    title: "New Ticket Created",
+                    description: data.ticket?.description || data.ticket?.title || "New ticket",
+                    ticketInfo: data.ticket?.title || `Ticket #${notification.ticketId.slice(0, 8)}`,
+                };
+            case "ticket_comment_added":
+                return {
+                    title: "New Comment Added",
+                    description: data.comment || "Comment added",
+                    ticketInfo: data.ticket?.title || `Ticket #${notification.ticketId.slice(0, 8)}`,
+                };
+            case "ticket_status_changed":
+                return {
+                    title: "Ticket Status Updated",
+                    description: `Status changed to ${data.status}`,
+                    ticketInfo: data.ticket?.title || `Ticket #${notification.ticketId.slice(0, 8)}`,
+                };
+            default:
+                return {
+                    title: "Notification",
+                    description: notification.message,
+                    ticketInfo: null,
+                };
+        }
+    };
 
     return (
         <div className="relative">
@@ -96,32 +172,78 @@ export default function NotificationBell() {
                                 </div>
                             ) : (
                                 <div className="divide-y divide-gray-200">
-                                    {notifications.map((notification) => (
-                                        <div
-                                            key={notification.id}
-                                            className={`px-4 py-3 hover:bg-gray-50 cursor-pointer ${!notification.read ? "bg-blue-50" : ""
-                                                }`}
-                                            onClick={() => {
-                                                if (!notification.read) {
-                                                    markAsRead(notification.id);
-                                                }
-                                            }}
-                                        >
-                                            <div className="flex items-start justify-between">
-                                                <div className="flex-1">
-                                                    <p className="text-sm text-gray-900">
-                                                        {notification.message}
-                                                    </p>
-                                                    <p className="text-xs text-gray-500 mt-1">
-                                                        {new Date(notification.createdAt).toLocaleString()}
-                                                    </p>
+                                    {notifications.map((notification) => {
+                                        const style = getEventStyle(notification.eventType);
+                                        const content = formatNotificationContent(notification);
+                                        const Icon = style.icon;
+
+                                        return (
+                                            <div
+                                                key={notification.id}
+                                                className={`px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors border-l-4 ${style.borderColor} ${!notification.isRead ? style.bgColor : ""
+                                                    }`}
+                                                onClick={() => {
+                                                    if (!notification.isRead) {
+                                                        markAsRead(notification.id);
+                                                    }
+                                                }}
+                                            >
+                                                <div className="flex items-start gap-3">
+                                                    {/* Icon */}
+                                                    <div className={`shrink-0 ${style.iconColor} mt-0.5`}>
+                                                        <Icon size={20} />
+                                                    </div>
+
+                                                    {/* Content */}
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-start justify-between gap-2">
+                                                            <div className="flex-1">
+                                                                <p className={`text-sm font-semibold ${!notification.isRead
+                                                                    ? "text-gray-900"
+                                                                    : "text-gray-700"
+                                                                    }`}>
+                                                                    {content.title}
+                                                                </p>
+                                                                <p className="text-sm text-gray-600 mt-0.5 line-clamp-2">
+                                                                    {content.description}
+                                                                </p>
+                                                                <div className="flex items-center gap-2 mt-1.5">
+                                                                    <p className="text-xs text-gray-500">
+                                                                        {new Date(notification.createdAt).toLocaleString()}
+                                                                    </p>
+                                                                    {content.ticketInfo && (
+                                                                        <>
+                                                                            <span className="text-xs text-gray-400">•</span>
+                                                                            <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${notification.eventType === "ticket_created"
+                                                                                ? "bg-green-100 text-green-700"
+                                                                                : "bg-gray-100 text-gray-600"
+                                                                                }`}>
+                                                                                {content.ticketInfo}
+                                                                            </span>
+                                                                        </>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Unread indicator */}
+                                                            {!notification.isRead && (
+                                                                <div className="shrink-0">
+                                                                    <div className={`w-2 h-2 rounded-full ${notification.eventType === "ticket_created"
+                                                                        ? "bg-green-600"
+                                                                        : notification.eventType === "ticket_comment_added"
+                                                                            ? "bg-blue-600"
+                                                                            : notification.eventType === "ticket_status_changed"
+                                                                                ? "bg-purple-600"
+                                                                                : "bg-gray-600"
+                                                                        }`} />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                {!notification.read && (
-                                                    <div className="ml-2 w-2 h-2 bg-blue-600 rounded-full" />
-                                                )}
                                             </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>

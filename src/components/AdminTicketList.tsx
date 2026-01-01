@@ -67,7 +67,7 @@ export default function AdminTicketList() {
         if (!selectedTicket || newStatus === selectedTicket.status) return;
 
         try {
-            await axios.patch(
+            await axios.put(
                 `http://localhost:3001/tickets/${selectedTicket.id}/status`,
                 { status: newStatus },
                 { withCredentials: true }
